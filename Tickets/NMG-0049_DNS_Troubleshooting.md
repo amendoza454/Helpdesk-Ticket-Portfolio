@@ -16,30 +16,31 @@
 | Domain Controller | NMG-DC01 |
 | Domain | NMG.com |
 | Environment | Windows 11 Pro / Windows Server 2019 |
+| Virtualization | Oracle VirtualBox |
 
 ## 1. Issue Description
 
-During a simulated IT Help Desk troubleshooting exercise, a DNS configuration issue was identified on NMG-WS01.
+During a simulated IT Help Desk troubleshooting exercise, NMG-WS01 was found to be using an incorrect DNS server when resolving the internal Active Directory domain.
 
-The workstation was querying the NAT network adapter's DNS server (`192.168.1.1`) instead of the internal Active Directory DNS server (`192.168.50.10`).
+The workstation initially queried `192.168.1.1`, the DNS server supplied through its NAT network adapter, instead of the internal domain controller at `192.168.50.10`.
 
-As a result, `NMG.com` resolved to an incorrect public IP address (`67.215.13.38`) rather than the internal domain controller.
+As a result, `NMG.com` resolved to the public IP address `67.215.13.38` rather than the internal domain controller.
 
 This configuration could interfere with Active Directory authentication, domain controller discovery, and access to internal network resources.
 
-**Objective:** Identify the incorrect DNS configuration, restore internal domain name resolution, and verify access to Active Directory resources.
+**Objective:** Identify the DNS configuration issue, restore internal domain name resolution, and verify connectivity to domain resources.
 
 ### Initial Help Desk Ticket
 
-The following Jira-style image illustrates the simulated incident before remediation.
+The following AI-generated Jira-style illustration represents the incident before remediation.
 
-**Note:** This is an AI-generated illustration, not a screenshot from a live Jira instance. Any additional failures depicted in the illustration were not independently verified.
+![Initial Incident Ticket - Simulated](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_Initial_Incident_Simulated.png)
 
-![Simulated Initial Incident Ticket](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049_Initial_Incident_Simulated.png)
+*Simulated illustration. Additional errors depicted in the ticket were not independently verified.*
 
-### Initial DNS Resolution Error
+### Initial DNS Error
 
-The workstation initially used `192.168.1.1` for DNS and returned a public IP address.
+The original DNS lookup returned an incorrect public address.
 
 **Recorded findings:**
 
@@ -49,17 +50,18 @@ Domain: NMG.com
 Resolved Address: 67.215.13.38
 ```
 
-The following image reconstructs the original DNS lookup using the values observed during troubleshooting.
+The following image reconstructs the observed DNS behavior.
 
-**SIMULATED / RECONSTRUCTED SCREENSHOT — Not original command output.**
+![Initial DNS Error - Reconstructed](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_Initial_DNS_Error_Simulated.png)
 
-![Reconstructed DNS Error](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049_Initial_DNS_Error_Simulated.png)
+*AI-generated reconstruction based on the recorded DNS values. Not an original Command Prompt screenshot.*
 
 ## 2. Lab Environment
 
-This incident was investigated in my Northstar Medical Group Active Directory homelab using Oracle VirtualBox.
+This incident was investigated in my Northstar Medical Group Active Directory homelab.
 
 **Technologies Used:**
+
 - Windows Server 2019
 - Windows 11 Pro
 - Active Directory Domain Services (AD DS)
@@ -67,14 +69,18 @@ This incident was investigated in my Northstar Medical Group Active Directory ho
 - TCP/IP Networking
 - Oracle VirtualBox
 - Command Prompt
-- Network Connections
+- Windows Network Connections
 
-**Affected Systems:**
-- Domain Controller: NMG-DC01
-- Workstation: NMG-WS01
-- Domain: NMG.com
-- Internal DNS Server: 192.168.50.10
-- Workstation Internal IP: 192.168.50.20
+**Network Configuration:**
+
+| Component | Configuration |
+|---|---|
+| Domain Controller | NMG-DC01 |
+| Domain Controller Internal IP | 192.168.50.10 |
+| Workstation | NMG-WS01 |
+| Workstation Internal IP | 192.168.50.20 |
+| Active Directory Domain | NMG.com |
+| Internal DNS Server | 192.168.50.10 |
 
 The workstation uses two network adapters:
 
@@ -95,7 +101,7 @@ ping 192.168.50.10
 
 **Result:** Successful communication with 0% packet loss.
 
-This confirmed that basic network connectivity between the workstation and domain controller was functioning.
+This confirmed that basic IP connectivity between the workstation and domain controller was functioning.
 
 ### Step 2 — Investigate DNS Resolution
 
@@ -107,7 +113,7 @@ nslookup NMG.com
 
 **Finding:** The workstation queried DNS server `192.168.1.1` and returned the public IP address `67.215.13.38`.
 
-To test the internal DNS server directly, executed:
+To isolate the issue, explicitly queried the internal DNS server:
 
 ```cmd
 nslookup NMG.com 192.168.50.10
@@ -115,11 +121,11 @@ nslookup NMG.com 192.168.50.10
 
 **Result:** The internal DNS server successfully returned the domain controller's internal IP address.
 
-This indicated that the internal DNS service was functioning and that the workstation's DNS server selection was the primary issue.
+This confirmed that the internal DNS service was responding and pointed toward incorrect DNS server selection on the workstation.
 
 ### Step 3 — Inspect Network Adapter Configuration
 
-Reviewed the workstation's DNS settings using:
+Reviewed the DNS settings using:
 
 ```cmd
 netsh interface ipv4 show dnsservers
@@ -127,14 +133,16 @@ netsh interface ipv4 show dnsservers
 
 **Findings:**
 
-| Network Adapter | DNS Server |
+| Adapter | DNS Server |
 |---|---|
 | Ethernet (NAT) | 192.168.1.1 |
 | Ethernet 2 (Internal) | 192.168.50.10 |
 
-The NAT adapter obtained its DNS configuration through DHCP, while the internal adapter used the domain controller as its DNS server.
+The NAT adapter received its DNS configuration through DHCP, while the internal adapter was statically configured to use the domain controller.
 
-![Network Adapter DNS Configuration](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049_Network_Adapter_DNS.png)
+![Network Adapter DNS Configuration](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_Network_Adapter_DNS.png)
+
+*Actual homelab screenshot showing the internal DNS configuration.*
 
 ### Step 4 — Adjust Network Interface Metrics
 
@@ -144,18 +152,20 @@ Opened Network Connections:
 ncpa.cpl
 ```
 
-Navigated to each adapter's IPv4 advanced settings and configured the following interface metrics:
+Navigated to the advanced IPv4 settings for both network adapters and configured the following metrics:
 
-| Network Adapter | Interface Metric |
+| Adapter | Interface Metric |
 |---|---|
 | Ethernet 2 (Internal) | 10 |
 | Ethernet (NAT) | 50 |
 
-The internal adapter was assigned a lower metric than the NAT adapter.
+The internal adapter was assigned the lower interface metric.
 
-This change was followed by successful DNS resolution using the internal DNS server.
+This configuration change was followed by successful DNS resolution using the internal DNS server.
 
-![Network Interface Metrics](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049_Interface_Metrics.png)
+![Network Interface Metrics](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_Interface_Metrics.png)
+
+*Actual homelab screenshot showing the configured network interface metrics.*
 
 ### Step 5 — Flush DNS Resolver Cache
 
@@ -173,39 +183,40 @@ Windows IP Configuration
 Successfully flushed the DNS Resolver Cache.
 ```
 
-This cleared cached DNS resolver information before retesting domain resolution.
+The DNS cache was cleared before repeating the domain resolution tests.
 
 ## 4. Root Cause Analysis
 
-**Root Cause:** Incorrect DNS server selection on a dual-network-adapter Windows workstation.
+**Root Cause:** Incorrect DNS server selection on a dual-network-adapter workstation.
 
-NMG-WS01 had two configured DNS servers:
+NMG-WS01 had two DNS servers configured:
 
 - NAT adapter: `192.168.1.1`
 - Internal adapter: `192.168.50.10`
 
 The workstation initially selected the NAT adapter's DNS server, which returned a public IP address for `NMG.com`.
 
-Because Active Directory depends on internal DNS records for domain services, this behavior could interfere with domain resource discovery.
+Active Directory clients depend on internal DNS records to locate domain controllers and other domain services.
 
-After adjusting interface metrics and flushing the DNS cache, the workstation successfully queried the internal DNS server.
+After adjusting the interface metrics and flushing the DNS cache, the workstation began querying the internal DNS server.
 
-The observed before-and-after results support incorrect DNS server selection as the cause of the incident.
+The observed before-and-after results support DNS server selection as the primary cause of the incident.
 
 ## 5. Resolution
 
 The following corrective actions were completed:
 
-1. Identified the DNS server selected by the workstation.
-2. Verified that the internal domain controller DNS service was responding correctly.
-3. Reviewed DNS settings on both network adapters.
-4. Configured the internal adapter with interface metric `10`.
-5. Configured the NAT adapter with interface metric `50`.
+1. Identified the incorrect DNS server used by the workstation.
+2. Verified that the internal DNS server responded correctly.
+3. Inspected DNS settings on both network adapters.
+4. Assigned interface metric `10` to Ethernet 2 (Internal).
+5. Assigned interface metric `50` to Ethernet (NAT).
 6. Flushed the DNS resolver cache.
-7. Verified DNS resolution and domain controller discovery.
-8. Confirmed access to the HR shared drive.
+7. Verified domain name resolution.
+8. Confirmed domain controller discovery.
+9. Tested access to the HR shared drive.
 
-No changes to Active Directory user accounts or file share permissions were required.
+No changes to Active Directory user accounts or file share permissions were necessary.
 
 ## 6. Post-Resolution Verification
 
@@ -231,11 +242,9 @@ Addresses:  fd17:625c:f037:2:91ab:3401:42c3:b8c6
 
 **Result:** Passed.
 
-The workstation successfully queried the internal DNS server.
+The workstation successfully queried the internal DNS server and received the domain controller's internal address.
 
-The `Server: UnKnown` message did not prevent successful DNS resolution and may indicate that a reverse DNS record was unavailable.
-
-![Corrected DNS Resolution](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049_DNS_Resolution_Fixed.png)
+The `Server: UnKnown` message did not prevent DNS resolution and may indicate a missing reverse DNS record.
 
 ### Test 2 — Domain Controller Discovery
 
@@ -258,27 +267,31 @@ The command completed successfully
 
 **Result:** Passed.
 
-The workstation successfully located the Active Directory domain controller.
+The workstation successfully discovered NMG-DC01.
 
-![Domain Controller Discovery](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049_DC_Discovery.png)
+![Domain Controller Discovery](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_DC_Discovery.png)
+
+*Actual homelab screenshot confirming successful domain controller discovery.*
 
 ### Test 3 — HR Shared Drive Access
 
-Logged in as `NMG\jcooper` and opened the mapped HR departmental drive (`H:`).
+Signed in as `NMG\jcooper` and opened the mapped HR departmental drive (`H:`).
 
 Verified that the existing test file was accessible.
 
 **Result:** Passed.
 
-![HR Shared Drive Verification](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049_HR_Drive_Verification.png)
+![HR Shared Drive Verification](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_HR_Drive_Verification.png)
+
+*Actual homelab screenshot confirming successful access to the HR shared drive.*
 
 ## 7. Final Help Desk Ticket
 
-The following simulated Jira-style ticket summarizes the investigation, resolution, and successful verification.
+The following Jira-style illustration summarizes the incident investigation, corrective actions, and verification results.
 
-**Note:** This image was generated to illustrate the completed incident and does not represent an actual Jira system record.
+![Resolved Jira Ticket - Simulated](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_Jira_Ticket.png)
 
-![NMG-0049 Resolved Jira Ticket](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049_Jira_Ticket.png)
+*AI-generated Jira-style incident illustration. Not a record from a live Jira system.*
 
 ## 8. Resolution Summary
 
@@ -295,13 +308,15 @@ The following simulated Jira-style ticket summarizes the investigation, resoluti
 
 ## 9. Remaining Configuration Improvement
 
-During verification, the domain controller returned an additional address: `10.0.2.15`.
+During DNS verification, the domain controller also returned the address `10.0.2.15`.
 
 This address is associated with the domain controller's NAT adapter.
 
-Although domain controller discovery and HR shared drive access succeeded, registering NAT addresses in internal Active Directory DNS can create future connectivity issues.
+Although the incident was successfully resolved, registering unwanted NAT addresses in internal Active Directory DNS can cause future connectivity problems.
 
-**Recommended improvement:** Review DNS registration settings on NMG-DC01 and prevent unwanted NAT adapter addresses from being published in internal DNS.
+**Recommended Future Improvement:**
+
+Review DNS registration settings on NMG-DC01 and prevent unnecessary NAT adapter addresses from being published in internal DNS.
 
 This improvement is separate from the resolved incident.
 
@@ -311,7 +326,7 @@ This improvement is separate from the resolved incident.
 - Active Directory DNS troubleshooting
 - TCP/IP connectivity testing
 - DNS server configuration analysis
-- Network adapter interface metrics
+- Windows network interface metrics
 - DNS cache management
 - Domain controller discovery using NLTEST
 - Network share connectivity verification
@@ -326,11 +341,11 @@ This exercise demonstrated how incorrect DNS server selection can affect Windows
 **Key Takeaways:**
 
 1. Successful ping tests do not guarantee correct DNS configuration.
-2. Active Directory clients should query DNS servers that can resolve internal domain records.
+2. Active Directory clients should use DNS servers capable of resolving internal domain records.
 3. Multiple network adapters can complicate DNS server selection.
-4. Testing a specific DNS server helps isolate configuration issues.
-5. DNS troubleshooting should include both command-line diagnostics and functional verification.
-6. Real troubleshooting evidence should be distinguished from reconstructed or simulated illustrations.
+4. Querying a specific DNS server helps isolate configuration issues.
+5. DNS troubleshooting should include functional verification of affected resources.
+6. Reconstructed illustrations should be clearly distinguished from actual technical evidence.
 
 ## 12. Related Projects
 
