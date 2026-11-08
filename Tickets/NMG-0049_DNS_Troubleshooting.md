@@ -20,23 +20,23 @@
 
 ## 1. Issue Description
 
-During a simulated IT Help Desk troubleshooting exercise, NMG-WS01 was found to be using an incorrect DNS server when resolving the internal Active Directory domain.
+During a simulated IT Help Desk troubleshooting exercise, a DNS configuration issue was identified on NMG-WS01.
 
-The workstation initially queried `192.168.1.1`, the DNS server supplied through its NAT network adapter, instead of the internal domain controller at `192.168.50.10`.
+The workstation initially queried the NAT adapter's DNS server (`192.168.1.1`) instead of the internal Active Directory DNS server (`192.168.50.10`).
 
 As a result, `NMG.com` resolved to the public IP address `67.215.13.38` rather than the internal domain controller.
 
 This configuration could interfere with Active Directory authentication, domain controller discovery, and access to internal network resources.
 
-**Objective:** Identify the DNS configuration issue, restore internal domain name resolution, and verify connectivity to domain resources.
+**Objective:** Identify the DNS configuration issue, restore internal domain resolution, and verify access to domain resources.
 
 ### Initial Help Desk Ticket
 
-The following AI-generated Jira-style illustration represents the incident before remediation.
+The following Jira-style illustration represents the simulated incident before remediation.
 
-![Initial Incident Ticket - Simulated](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_Initial_Incident_Simulated.png)
+![Initial Help Desk Ticket - Simulated](../Screenshots/NMG-0049_Initial_Incident_Simulated.png)
 
-*Simulated illustration. Additional errors depicted in the ticket were not independently verified.*
+*AI-generated illustration. Some additional errors shown in the ticket were not independently verified.*
 
 ### Initial DNS Error
 
@@ -50,15 +50,15 @@ Domain: NMG.com
 Resolved Address: 67.215.13.38
 ```
 
-The following image reconstructs the observed DNS behavior.
+The following image reconstructs the original DNS lookup using the values observed during troubleshooting.
 
-![Initial DNS Error - Reconstructed](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_Initial_DNS_Error_Simulated.png)
+![Initial DNS Error - Simulated](../Screenshots/NMG-0049_Initial_DNS_Error_Simulated.png)
 
-*AI-generated reconstruction based on the recorded DNS values. Not an original Command Prompt screenshot.*
+*AI-generated reconstruction based on recorded DNS values. Not an original Command Prompt screenshot.*
 
 ## 2. Lab Environment
 
-This incident was investigated in my Northstar Medical Group Active Directory homelab.
+This incident was investigated in my Northstar Medical Group Active Directory homelab using Oracle VirtualBox.
 
 **Technologies Used:**
 
@@ -125,7 +125,7 @@ This confirmed that the internal DNS service was responding and pointed toward i
 
 ### Step 3 — Inspect Network Adapter Configuration
 
-Reviewed the DNS settings using:
+Reviewed the workstation's DNS settings using:
 
 ```cmd
 netsh interface ipv4 show dnsservers
@@ -140,7 +140,7 @@ netsh interface ipv4 show dnsservers
 
 The NAT adapter received its DNS configuration through DHCP, while the internal adapter was statically configured to use the domain controller.
 
-![Network Adapter DNS Configuration](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_Network_Adapter_DNS.png)
+![Network Adapter DNS Configuration](../Screenshots/NMG-0049_Network_Adapter_DNS.png)
 
 *Actual homelab screenshot showing the internal DNS configuration.*
 
@@ -152,7 +152,7 @@ Opened Network Connections:
 ncpa.cpl
 ```
 
-Navigated to the advanced IPv4 settings for both network adapters and configured the following metrics:
+Navigated to the advanced IPv4 settings for both network adapters and configured the following interface metrics:
 
 | Adapter | Interface Metric |
 |---|---|
@@ -161,11 +161,11 @@ Navigated to the advanced IPv4 settings for both network adapters and configured
 
 The internal adapter was assigned the lower interface metric.
 
-This configuration change was followed by successful DNS resolution using the internal DNS server.
+After applying the changes and flushing the DNS cache, the workstation successfully queried the internal DNS server.
 
-![Network Interface Metrics](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_Interface_Metrics.png)
+![Network Interface Metrics](../Screenshots/NMG-0049_Interface_Metrics.png)
 
-*Actual homelab screenshot showing the configured network interface metrics.*
+*Actual homelab screenshot showing the configured interface metrics.*
 
 ### Step 5 — Flush DNS Resolver Cache
 
@@ -183,13 +183,13 @@ Windows IP Configuration
 Successfully flushed the DNS Resolver Cache.
 ```
 
-The DNS cache was cleared before repeating the domain resolution tests.
+This cleared cached DNS resolver information before retesting domain resolution.
 
 ## 4. Root Cause Analysis
 
 **Root Cause:** Incorrect DNS server selection on a dual-network-adapter workstation.
 
-NMG-WS01 had two DNS servers configured:
+NMG-WS01 had two configured DNS servers:
 
 - NAT adapter: `192.168.1.1`
 - Internal adapter: `192.168.50.10`
@@ -206,17 +206,17 @@ The observed before-and-after results support DNS server selection as the primar
 
 The following corrective actions were completed:
 
-1. Identified the incorrect DNS server used by the workstation.
+1. Identified the incorrect DNS server selected by the workstation.
 2. Verified that the internal DNS server responded correctly.
 3. Inspected DNS settings on both network adapters.
 4. Assigned interface metric `10` to Ethernet 2 (Internal).
 5. Assigned interface metric `50` to Ethernet (NAT).
 6. Flushed the DNS resolver cache.
-7. Verified domain name resolution.
+7. Verified internal domain name resolution.
 8. Confirmed domain controller discovery.
 9. Tested access to the HR shared drive.
 
-No changes to Active Directory user accounts or file share permissions were necessary.
+No changes to Active Directory user accounts or file share permissions were required.
 
 ## 6. Post-Resolution Verification
 
@@ -242,7 +242,7 @@ Addresses:  fd17:625c:f037:2:91ab:3401:42c3:b8c6
 
 **Result:** Passed.
 
-The workstation successfully queried the internal DNS server and received the domain controller's internal address.
+The workstation successfully queried the internal DNS server and received the domain controller's internal IP address.
 
 The `Server: UnKnown` message did not prevent DNS resolution and may indicate a missing reverse DNS record.
 
@@ -269,7 +269,7 @@ The command completed successfully
 
 The workstation successfully discovered NMG-DC01.
 
-![Domain Controller Discovery](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_DC_Discovery.png)
+![Domain Controller Discovery](../Screenshots/NMG-0049_DC_Discovery.png)
 
 *Actual homelab screenshot confirming successful domain controller discovery.*
 
@@ -281,7 +281,7 @@ Verified that the existing test file was accessible.
 
 **Result:** Passed.
 
-![HR Shared Drive Verification](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_HR_Drive_Verification.png)
+![HR Shared Drive Verification](../Screenshots/NMG-0049_HR_Drive_Verification.png)
 
 *Actual homelab screenshot confirming successful access to the HR shared drive.*
 
@@ -289,7 +289,7 @@ Verified that the existing test file was accessible.
 
 The following Jira-style illustration summarizes the incident investigation, corrective actions, and verification results.
 
-![Resolved Jira Ticket - Simulated](https://raw.githubusercontent.com/amendoza454/Windows-Infrastructure---Access-Control--AD-GPO-RBAC/main/Screenshots/NMG-0049%20Ticket/NMG-0049_Jira_Ticket.png)
+![Resolved Jira Ticket - Simulated](../Screenshots/NMG-0049_Jira_Ticket.png)
 
 *AI-generated Jira-style incident illustration. Not a record from a live Jira system.*
 
