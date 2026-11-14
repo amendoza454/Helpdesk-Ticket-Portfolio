@@ -21,12 +21,6 @@ This portfolio documents my approach to diagnosing technical issues, identifying
 
 **Domain:** NMG.com
 
-## Progress
-
-- **Completed Tickets:** 2
-- **In Progress:** Documentation and portfolio updates
-- **Upcoming Scenarios:** Shared Drive Access Denied, Printer Troubleshooting
-
 ## Skills Demonstrated
 
 - **Active Directory:** Account management, account lockouts, domain authentication
