@@ -45,6 +45,7 @@ This portfolio documents my approach to diagnosing technical issues, identifying
 | NMG-0049 | DNS & Network Connectivity Issue | Networking / DNS | Resolved |
 | NMG-0050 | Shared Drive Access Denied | File Permissions | Planned |
 | NMG-0051 | Printer Troubleshooting | Endpoint Support | Planned |
+| [NMG-0050](Tickets/NMG-0050_Shared_Drive_Access_Denied.md) | Shared Drive Access Denied | NTFS / SMB Permissions / RBAC | Resolved |
 
 ## Troubleshooting Methodology
 
