@@ -35,6 +35,7 @@ This portfolio documents my approach to diagnosing technical issues, identifying
 
 | Ticket | Issue | Category | Status |
 |---|---|---|---|
+| [NMG-0047](Tickets/NMG-0047_User_Access_Error.md) | New Employee Access Error | Active Directory / RBAC | Resolved |
 | [NMG-0048](Tickets/NMG-0048_Account_Lockout.md) | Active Directory Account Lockout | Identity / Authentication | Resolved |
 | [NMG-0049](Tickets/NMG-0049_DNS_Troubleshooting.md) | DNS & Network Connectivity Issue | Networking / DNS | Resolved |
 | [NMG-0050](Tickets/NMG-0050_Shared_Drive_Access_Denied.md) | Shared Drive Access Denied | NTFS / SMB Permissions / RBAC | Resolved |
